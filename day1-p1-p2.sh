@@ -24,11 +24,11 @@ done
 # while preserving sort order
 arr_count=(${arr_count[*]})
 
-# print out topmost elf calorie count
+# print out topmost elf calorie count - PART1
 elf_top=${arr_count[*]: -1:1}
 echo $(( arr_elf[elf_top] ))
 
-# print the top 3 elf calorie total
+# print the top 3 elf calorie total - PART2
 elf_second=${arr_count[*]: -2:1}
 elf_third=${arr_count[*]: -3:1}
 echo $(( arr_elf[elf_top] + arr_elf[elf_second] + arr_elf[elf_third] ))
