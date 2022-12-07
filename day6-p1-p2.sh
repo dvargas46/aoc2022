@@ -1,5 +1,5 @@
 #!/bin/bash
-# day5 - part1 and part2
+# day6 - part1 and part2
 
 # pass input via stdin with trailing line
 read buf
