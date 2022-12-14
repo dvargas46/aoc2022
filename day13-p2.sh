@@ -1,9 +1,17 @@
-# will clean up later
+#!/bin/bash
+# day13 - part2
+# some modifications were needed from part1, but most of it was the same
+#
+# pass input via stdin with trailing line
+#
 
-is_pair_done() { 
+# checks if the current results has been added to the ordered var
+# which can be used to determine if we can stop comparing further values
+is_compare_done() { 
   [[ ! -z $ordered ]]
 }
 
+# parses the passed in array list, e.g. "[1,2,3]"
 parse_array() {
   local -n arr=${1}
   local next_value
@@ -21,6 +29,8 @@ parse_array() {
   done
 }
 
+# parses the next value in the list
+# NOTE: this mutates $inner_word from the caller's scope
 get_next_value() {
   local next_arr
   local index=$1
@@ -31,7 +41,6 @@ get_next_value() {
     inner_word=${inner_word/"$list"}
     [[ ${inner_word::1} == , ]] && inner_word=${inner_word:1}
     next_arr=${!arr}_$index
-    #echo parsing inner array as '"'$next_arr'"': $list
     parse_array $next_arr $list
     next_val=$next_arr
     return
@@ -44,31 +53,16 @@ get_next_value() {
     return
     
   fi
-  
-  echo BUG && exit 1
 }
 
+# returns true/false on whether the passed in arg is a list
 is_list() {
   local word=$1
   [[ ${word:0:1} == '[' ]] && return
   false
 }
 
-is_int() {
-  local word=$1
-  [[ ${word:0:1} == [0-9] ]] && return
-  false
-}
-
-get_next_int() {
-  local word=$1
-  local build=""
-  for((i=0; i<=${#word}; i++)) {
-    char=${word:i:1}
-    [[ $char =~ [0-9] ]] && build+=$char || { echo "${build}"; return;}
-  }
-}
-
+# parses the next list in the passed in arg
 get_next_list() {
   local word=$1
   local bracket_count=0
@@ -81,6 +75,30 @@ get_next_list() {
   false
 }
 
+# returns true/false on whether the passed in arg is an integer
+is_int() {
+  local word=$1
+  [[ ${word:0:1} == [0-9] ]] && return
+  false
+}
+
+# parses the next integer in the passed in arg
+get_next_int() {
+  local word=$1
+  local build=""
+  for((i=0; i<=${#word}; i++)) {
+    char=${word:i:1}
+    [[ $char =~ [0-9] ]] && build+=$char || { echo "${build}"; return;}
+  }
+}
+
+# compares 2 integers based on challenge rules
+compare_ints() {
+    (( $1 < $2 )) && ordered=1 #&& echo ordered
+    (( $1 > $2 )) && ordered=0 #&& echo unordered
+}
+
+# primary function to compare the 2 arrays by the names passed in as args
 compare() {
   local -n larr=$1
   local -n rarr=$2
@@ -90,50 +108,43 @@ compare() {
   local size
   local i
 
-  #echo $pair_index -- ${!larr}:[${larr[@]/#/,}] ... ${!rarr}:[${rarr[@]/#/,}]
-
   let "size = ls > rs ? ls : rs"
   for((i=0; i<size; i++)) {
     nl=${larr[i]}
     nr=${rarr[i]}
 
-    (( i >= ls )) && ordered=1 #&& echo ordered
-    (( i >= rs )) && ordered=0 #&& echo unordered
+    (( i >= ls )) && ordered=1
+    (( i >= rs )) && ordered=0
 
-    is_pair_done && return
+    is_compare_done && return
 
     if is_int $nl && is_int $nr; then
-      #echo comparing ints $nl $nr
       compare_ints $nl $nr
+
     elif is_int $nl && ! is_int $nr; then
       temparr=($nl)
-      #echo  compare temparr $nr
       compare temparr $nr
+
     elif ! is_int $nl && is_int $nr; then
       temparr=($nr)
-      #echo  compare $nl temparr
       compare $nl temparr
+
     elif ! is_int $nl && ! is_int $nr; then
-      #echo comparing lists $nl $nr
       compare $nl $nr
     fi
 
-    is_pair_done && return
+    is_compare_done && return
   }
 }
 
-compare_ints() {
-    (( $1 < $2 )) && ordered=1 #&& echo ordered
-    (( $1 > $2 )) && ordered=0 #&& echo unordered
-}
+# setup divider packets and add to main array
+divider0=(divider01)
+divider01=(2)
+divider1=(divider11)
+divider11=(6)
+main+=(divider0 divider1)
 
-marker0=(marker01)
-marker01=(2)
-marker1=(marker11)
-marker11=(6)
-
-main+=(marker0 marker1)
-
+# read input, parse arrays, and add to main array
 while read left
 do
   read right
@@ -146,35 +157,29 @@ do
   main+=(left_$pair_index right_$pair_index)
 done
 
+# slow and dirty bubble sort, but it gets the job done in less than a minute still
 prev=false
 while [[ ${prev_a[@]} != ${main[@]} ]]
 do
-prev_a=(${main[@]})
-size=${#main[@]}
-prev=${main[0]}
-for curr in ${main[@]:1};{
-  unset ordered
-  [[ size -eq ${#main[@]} ]] && unset main
-  
-  compare $prev $curr
-  [[ ordered -eq 1 ]] && { next=$prev; prev=$curr;} || { next=$curr;}
-  main+=($next)
-}
-main+=($prev)
-#echo prev: ${prev_a[@]}
-#echo new:  ${main[@]}
-#echo
+  prev_a=(${main[@]})
+  size=${#main[@]}
+  prev=${main[0]}
+  for curr in ${main[@]:1};{
+    unset ordered
+    [[ size -eq ${#main[@]} ]] && unset main
+    
+    compare $prev $curr
+    [[ ordered -eq 1 ]] && { next=$prev; prev=$curr;} || { next=$curr;}
+    main+=($next)
+  }
+  main+=($prev)
 done
 
-#echo ${main[@]}
-#declare -n ele
-#for ele in ${main[@]}; { echo ${ele[@]};}
-
+# calculate the product based on divider packet indices
 index=1
 product=1
 for list_name in ${main[@]};{
-  [[ $list_name =~ marker* ]] && let product*=index
+  [[ $list_name =~ divider* ]] && let product*=index
   let index++
 }
-
 echo $product

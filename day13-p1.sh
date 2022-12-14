@@ -1,9 +1,16 @@
-# will clean up later
+#!/bin/bash
+# day13 - part1
+#
+# pass input via stdin with trailing line
+#
 
+# checks if the current pair index has been added to the ordered pair list
+# which can be used to determine if we can stop comparing further values
 is_pair_done() { 
   (( ordered_pairs[pair_index] || unordered_pairs[pair_index] ))
 }
 
+# parses the passed in array list, e.g. "[1,2,3]"
 parse_array() {
   local -n arr=${1}
   local next_value
@@ -12,16 +19,18 @@ parse_array() {
   local index=0
   inner_word=${inner_word::${#inner_word}-1}
 
+  # continue parsing each value until $inner_word empty (array values)
   while [[ ! -z $inner_word ]]
   do
-    #echo step ${!arr} $index: $inner_word :: ${arr[@]}
-    get_next_value $index $inner_word
+    parse_next_value $index $inner_word # mutates $next_val and $inner_word
     arr+=( $next_val )
     let index++
   done
 }
 
-get_next_value() {
+# parses the next value in the list
+# NOTE: this mutates $inner_word from the caller's scope
+parse_next_value() {
   local next_arr
   local index=$1
   local word=$2
@@ -31,7 +40,6 @@ get_next_value() {
     inner_word=${inner_word/"$list"}
     [[ ${inner_word::1} == , ]] && inner_word=${inner_word:1}
     next_arr=${!arr}$index
-    #echo parsing inner array as '"'$next_arr'"': $list
     parse_array $next_arr $list
     next_val=$next_arr
     return
@@ -44,31 +52,16 @@ get_next_value() {
     return
     
   fi
-  
-  echo BUG && exit 1
 }
 
+# returns true/false on whether the passed in arg is a list
 is_list() {
   local word=$1
   [[ ${word:0:1} == '[' ]] && return
   false
 }
 
-is_int() {
-  local word=$1
-  [[ ${word:0:1} == [0-9] ]] && return
-  false
-}
-
-get_next_int() {
-  local word=$1
-  local build=""
-  for((i=0; i<=${#word}; i++)) {
-    char=${word:i:1}
-    [[ $char =~ [0-9] ]] && build+=$char || { echo "${build}"; return;}
-  }
-}
-
+# parses the next list in the passed in arg
 get_next_list() {
   local word=$1
   local bracket_count=0
@@ -81,6 +74,30 @@ get_next_list() {
   false
 }
 
+# returns true/false on whether the passed in arg is an integer
+is_int() {
+  local word=$1
+  [[ ${word:0:1} == [0-9] ]] && return
+  false
+}
+
+# parses the next integer in the passed in arg
+get_next_int() {
+  local word=$1
+  local build=""
+  for((i=0; i<=${#word}; i++)) {
+    char=${word:i:1}
+    [[ $char =~ [0-9] ]] && build+=$char || { echo "${build}"; return;}
+  }
+}
+
+# compares 2 integers based on challenge rules
+compare_ints() {
+    (( $1 < $2 )) && ordered_pairs[pair_index]=1
+    (( $1 > $2 )) && unordered_pairs[pair_index]=1
+}
+
+# primary function to compare the 2 arrays by the names passed in as args
 compare() {
   local -n larr=$1
   local -n rarr=$2
@@ -90,43 +107,37 @@ compare() {
   local size
   local i
 
-  #echo $pair_index -- ${!larr}:[${larr[@]/#/,}] ... ${!rarr}:[${rarr[@]/#/,}]
-
   let "size = ls > rs ? ls : rs"
   for((i=0; i<size; i++)) {
     nl=${larr[i]}
     nr=${rarr[i]}
 
-    (( i >= ls )) && ordered_pairs[pair_index]=1 #&& echo ordered
-    (( i >= rs )) && unordered_pairs[pair_index]=1 #&& echo unordered
+    (( i >= ls )) && ordered_pairs[pair_index]=1
+    (( i >= rs )) && unordered_pairs[pair_index]=1
 
     is_pair_done && return
 
     if is_int $nl && is_int $nr; then
-      #echo comparing ints $nl $nr
       compare_ints $nl $nr
+
     elif is_int $nl && ! is_int $nr; then
       temparr=($nl)
-      #echo  compare temparr $nr
       compare temparr $nr
+
     elif ! is_int $nl && is_int $nr; then
       temparr=($nr)
-      #echo  compare $nl temparr
       compare $nl temparr
+
     elif ! is_int $nl && ! is_int $nr; then
-      #echo comparing lists $nl $nr
       compare $nl $nr
+
     fi
 
     is_pair_done && return
   }
 }
 
-compare_ints() {
-    (( $1 < $2 )) && ordered_pairs[pair_index]=1 #&& echo ordered
-    (( $1 > $2 )) && unordered_pairs[pair_index]=1 #&& echo unordered
-}
-
+# read input, parse arrays, and compare
 while read left
 do
   read right
@@ -135,19 +146,12 @@ do
   unset ${!left_*} ${!right_*}
   let pair_index++
 
-  # declare -n ele
-  # echo left:$left, right:$right
   parse_array left_ $left
-  # for ele in ${!left_*};{ echo ${!ele}: ${ele[@]};}
-
   parse_array right_ $right
-  # for ele in ${!right_*};{ echo ${!ele}: ${ele[@]};}
-  # echo
 
   compare left_ right_
-  
 done
 
+# retrieve ordered pair indices and sum
 indices=(${!ordered_pairs[@]})
 echo $(( ${indices[@]/#/+} ))
-#echo ${!unordered_pairs[@]}
